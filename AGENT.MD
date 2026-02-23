@@ -1,0 +1,6 @@
+- Create a well represented, responsive data visualization dashboard
+- It should be tailored, and must provide insights. 
+- It should not be generic
+- Use the streamlit library
+- Make use of appropriate chart to give comprehensive overview and should tell a good story
+- Again, use the right tool so represent categorical and continuous data columns
