@@ -62,7 +62,11 @@ if "dark_mode" not in st.session_state:
 with st.sidebar:
     st.markdown("## Dashboard Filters")
 
-    dark_mode = st.toggle("🌙 Dark Mode", value=st.session_state["dark_mode"], key="dark_toggle")
+    _tcol_label, _tcol_toggle = st.columns([5, 1])
+    with _tcol_label:
+        st.markdown("Dark Mode")
+    with _tcol_toggle:
+        dark_mode = st.toggle("", value=st.session_state["dark_mode"], key="dark_toggle", label_visibility="collapsed")
     st.session_state["dark_mode"] = dark_mode
 
     st.markdown("---")
@@ -199,18 +203,28 @@ st.markdown(f"""
   h1, h2, h3, h4 {{ color: {T['text']} !important; }}
   [data-testid="stCaptionContainer"] p {{ color: {T['subtext']} !important; }}
   p {{ color: {T['text']}; }}
-  /* ── plotly chart axes labels (SVG fill) ── */
-  .stPlotlyChart svg text {{
+  /* ── plotly: all axis ticks, titles, legends, colorbars (primary + secondary) ── */
+  .stPlotlyChart svg .xtick text,
+  .stPlotlyChart svg .ytick text,
+  .stPlotlyChart svg .x2tick text,
+  .stPlotlyChart svg .y2tick text,
+  .stPlotlyChart svg .x3tick text,
+  .stPlotlyChart svg .y3tick text,
+  .stPlotlyChart svg .g-xtitle text,
+  .stPlotlyChart svg .g-ytitle text,
+  .stPlotlyChart svg .g-x2title text,
+  .stPlotlyChart svg .g-y2title text,
+  .stPlotlyChart svg .g-x3title text,
+  .stPlotlyChart svg .g-y3title text,
+  .stPlotlyChart svg .legendtext,
+  .stPlotlyChart svg .cbaxis text,
+  .stPlotlyChart svg .cbtitle text,
+  .stPlotlyChart svg .colorbar text {{
       fill: {T['text']} !important;
   }}
-  /* ── dark mode toggle: label left, switch right ── */
-  [data-testid="stToggle"] label {{
-      display: flex !important;
-      flex-direction: row-reverse !important;
-      justify-content: space-between !important;
+  /* ── sidebar columns: vertically center toggle row ── */
+  section[data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {{
       align-items: center !important;
-      width: 100% !important;
-      gap: 0 !important;
   }}
 </style>
 """, unsafe_allow_html=True)
@@ -349,9 +363,10 @@ fig_line.update_layout(
     margin=dict(l=20, r=20, t=40, b=20),
     height=380,
 )
-fig_line.update_yaxes(title_text=_pm_label, secondary_y=False, gridcolor=T["grid"])
-fig_line.update_yaxes(title_text=_sec_label, secondary_y=True)
-fig_line.update_xaxes(gridcolor=T["grid"])
+_axis_font = dict(color=T["text"])
+fig_line.update_yaxes(title_text=_pm_label, secondary_y=False, gridcolor=T["grid"], title_font=_axis_font, tickfont=_axis_font)
+fig_line.update_yaxes(title_text=_sec_label, secondary_y=True, title_font=_axis_font, tickfont=_axis_font)
+fig_line.update_xaxes(gridcolor=T["grid"], title_font=_axis_font, tickfont=_axis_font)
 st.plotly_chart(fig_line, use_container_width=True)
 
 # ── Section 2: Comparing categories — Bar Chart ───────────────────────────────
@@ -387,7 +402,10 @@ fig_bar.update_layout(
     hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
     margin=dict(l=20, r=20, t=20, b=20),
     height=max(350, top_n * 28),
-    coloraxis_colorbar=dict(title=METRIC_LABELS.get(primary_metric, primary_metric)),
+    coloraxis_colorbar=dict(
+        title=dict(text=METRIC_LABELS.get(primary_metric, primary_metric), font=dict(color=T["text"])),
+        tickfont=dict(color=T["text"]),
+    ),
     yaxis=dict(tickfont=dict(size=11)),
 )
 fig_bar.update_xaxes(gridcolor=T["grid"])
@@ -512,7 +530,10 @@ if not scatter_data.empty:
         hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
         margin=dict(l=20, r=20, t=20, b=20),
         height=450,
-        coloraxis_colorbar=dict(title=METRIC_LABELS.get(_scatter_color, _scatter_color)),
+        coloraxis_colorbar=dict(
+            title=dict(text=METRIC_LABELS.get(_scatter_color, _scatter_color), font=dict(color=T["text"])),
+            tickfont=dict(color=T["text"]),
+        ),
     )
     fig_scatter.update_xaxes(gridcolor=T["grid"])
     fig_scatter.update_yaxes(gridcolor=T["grid"])
@@ -555,7 +576,10 @@ fig_choro.update_layout(
     ),
     margin=dict(l=0, r=0, t=10, b=0),
     height=540,
-    coloraxis_colorbar=dict(title=METRIC_LABELS.get(primary_metric, primary_metric)),
+    coloraxis_colorbar=dict(
+        title=dict(text=METRIC_LABELS.get(primary_metric, primary_metric), font=dict(color=T["text"])),
+        tickfont=dict(color=T["text"]),
+    ),
 )
 st.plotly_chart(fig_choro, use_container_width=True)
 
@@ -589,7 +613,10 @@ if len(corr_data) >= 3:
         hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
         margin=dict(l=20, r=20, t=20, b=20),
         height=460,
-        coloraxis_colorbar=dict(title="r"),
+        coloraxis_colorbar=dict(
+            title=dict(text="Pearson r", font=dict(color=T["text"])),
+            tickfont=dict(color=T["text"]),
+        ),
         xaxis=dict(tickangle=-30),
     )
     st.plotly_chart(fig_heat, use_container_width=True)
