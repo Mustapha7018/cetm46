@@ -102,7 +102,7 @@ with st.sidebar:
         index=0,
     )
 
-    top_n = st.slider("Top N Countries", min_value=5, max_value=30, value=15)
+    top_n = st.slider("Top N Countries", min_value=5, max_value=15, value=10)
 
     st.markdown("---")
     st.markdown(
