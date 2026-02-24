@@ -60,7 +60,7 @@ if "dark_mode" not in st.session_state:
 
 # Sidebar 
 with st.sidebar:
-    st.markdown("## 🌍 Dashboard Filters")
+    st.markdown("## Dashboard Filters")
 
     dark_mode = st.toggle("🌙 Dark Mode", value=st.session_state["dark_mode"], key="dark_toggle")
     st.session_state["dark_mode"] = dark_mode
@@ -77,7 +77,7 @@ with st.sidebar:
     )
 
     all_countries = sorted(df_raw["Country"].unique().tolist())
-    ALL_OPTION = "🌍 All Countries"
+    ALL_OPTION = "All Countries"
     country_options = [ALL_OPTION] + all_countries
 
     raw_selection = st.multiselect(
@@ -98,7 +98,7 @@ with st.sidebar:
         index=0,
     )
 
-    top_n = st.slider("Top N Countries (Bar Chart)", min_value=5, max_value=30, value=15)
+    top_n = st.slider("Top N Countries", min_value=5, max_value=30, value=15)
 
     st.markdown("---")
     st.markdown(
@@ -126,6 +126,10 @@ if dark_mode:
         "geo_bg": "rgba(13,33,55,0.6)",
         "geo_land": "rgba(30,58,92,0.5)",
         "geo_coast": "#2d5986",
+        "input_bg": "#0d2137",
+        "hoverlabel_bg": "#1e3a5f",
+        "hoverlabel_font": "#e2f0fb",
+        "hoverlabel_border": "#2d5986",
     }
 else:
     T = {
@@ -146,6 +150,10 @@ else:
         "geo_bg": "rgba(240,246,255,0.8)",
         "geo_land": "rgba(195,220,255,0.6)",
         "geo_coast": "#93c5fd",
+        "input_bg": "#ffffff",
+        "hoverlabel_bg": "#ffffff",
+        "hoverlabel_font": "#0d2137",
+        "hoverlabel_border": "#93c5fd",
     }
 
 # CSS injection 
@@ -191,15 +199,64 @@ st.markdown(f"""
   h1, h2, h3, h4 {{ color: {T['text']} !important; }}
   [data-testid="stCaptionContainer"] p {{ color: {T['subtext']} !important; }}
   p {{ color: {T['text']}; }}
+  /* ── plotly chart axes labels (SVG fill) ── */
+  .stPlotlyChart svg text {{
+      fill: {T['text']} !important;
+  }}
+  /* ── dark mode toggle: label left, switch right ── */
+  [data-testid="stToggle"] label {{
+      display: flex !important;
+      flex-direction: row-reverse !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      width: 100% !important;
+      gap: 0 !important;
+  }}
 </style>
 """, unsafe_allow_html=True)
 
-# Filter dataframe 
+if not dark_mode:
+    st.markdown("""
+<style>
+  /* ── light mode: select/multiselect box background ── */
+  section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+      background-color: #ffffff !important;
+      border-color: #93c5fd !important;
+  }
+  /* search input text */
+  section[data-testid="stSidebar"] [data-baseweb="select"] input {
+      color: #0d2137 !important;
+      background-color: transparent !important;
+  }
+  /* placeholder / hint text */
+  section[data-testid="stSidebar"] [data-baseweb="select"] input::placeholder {
+      color: #2d5986 !important;
+      opacity: 1 !important;
+  }
+  /* selected single value text (selectbox) */
+  section[data-testid="stSidebar"] [data-baseweb="select"] [data-id="placeholder"],
+  section[data-testid="stSidebar"] [data-baseweb="select"] > div > div > div:not([data-baseweb="tag"]) {
+      color: #0d2137 !important;
+  }
+</style>
+""", unsafe_allow_html=True)
+
+# Filter dataframe
 df = df_raw[
     (df_raw["Year"] >= year_range[0])
     & (df_raw["Year"] <= year_range[1])
     & (df_raw["Country"].isin(selected_countries))
 ].copy()
+
+# Apply top-N filter globally across all charts
+if df["Country"].nunique() > top_n:
+    _top_n_countries = (
+        df.groupby("Country")[primary_metric]
+        .mean()
+        .nlargest(top_n)
+        .index.tolist()
+    )
+    df = df[df["Country"].isin(_top_n_countries)]
 
 # Header 
 st.title("🌍 Global Climate Change Dashboard (2000–2024)")
@@ -210,11 +267,11 @@ st.markdown(
 st.markdown("---")
 
 # KPI cards 
-def make_kpi(label, icon, col_name, fmt=".2f", suffix=""):
+def make_kpi(label, col_name, fmt=".2f", suffix=""):
     if df.empty or col_name not in df.columns:
         return (
             f"<div class='metric-card'>"
-            f"<div class='metric-label'>{icon} {label}</div>"
+            f"<div class='metric-label'>{label}</div>"
             f"<div class='metric-value'>—</div>"
             f"</div>"
         )
@@ -225,7 +282,7 @@ def make_kpi(label, icon, col_name, fmt=".2f", suffix=""):
     delta_class = "metric-delta-pos" if delta >= 0 else "metric-delta-neg"
     return (
         f"<div class='metric-card'>"
-        f"<div class='metric-label'>{icon} {label}</div>"
+        f"<div class='metric-label'>{label}</div>"
         f"<div class='metric-value'>{val:{fmt}}{suffix}</div>"
         f"<div class='{delta_class}'>{sign} {abs(delta):{fmt}}{suffix} vs global avg</div>"
         f"</div>"
@@ -233,16 +290,16 @@ def make_kpi(label, icon, col_name, fmt=".2f", suffix=""):
 
 k1, k2, k3, k4 = st.columns(4)
 with k1:
-    st.markdown(make_kpi("Avg Temperature", "🌡️", "Avg Temperature (°C)", ".1f", " °C"), unsafe_allow_html=True)
+    st.markdown(make_kpi("Avg Temperature", "Avg Temperature (°C)", ".1f", " °C"), unsafe_allow_html=True)
 with k2:
-    st.markdown(make_kpi("CO2 per Capita", "💨", "CO2 Emissions (Tons/Capita)", ".2f", " T"), unsafe_allow_html=True)
+    st.markdown(make_kpi("CO2 per Capita", "CO2 Emissions (Tons/Capita)", ".2f", " T"), unsafe_allow_html=True)
 with k3:
-    st.markdown(make_kpi("Sea Level Rise", "🌊", "Sea Level Rise (mm)", ".1f", " mm"), unsafe_allow_html=True)
+    st.markdown(make_kpi("Sea Level Rise", "Sea Level Rise (mm)", ".1f", " mm"), unsafe_allow_html=True)
 with k4:
-    st.markdown(make_kpi("Renewable Energy", "⚡", "Renewable Energy (%)", ".1f", "%"), unsafe_allow_html=True)
+    st.markdown(make_kpi("Renewable Energy", "Renewable Energy (%)", ".1f", "%"), unsafe_allow_html=True)
 
 # Section 1: Changes over time — Line Chart 
-st.markdown("<div class='section-header'>📈 How has the climate changed over time?</div>", unsafe_allow_html=True)
+st.markdown("<div class='section-header'>How has the climate changed over time?</div>", unsafe_allow_html=True)
 st.caption("Communication purpose: **Changes over time** — dual-axis line chart")
 
 _line_secondary = (
@@ -286,6 +343,8 @@ fig_line.update_layout(
     template=T["plotly"],
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor=T["plot_bg"],
+    font=dict(color=T["text"]),
+    hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     margin=dict(l=20, r=20, t=40, b=20),
     height=380,
@@ -297,7 +356,7 @@ st.plotly_chart(fig_line, use_container_width=True)
 
 # ── Section 2: Comparing categories — Bar Chart ───────────────────────────────
 st.markdown(
-    f"<div class='section-header'>📊 Top countries by {METRIC_LABELS.get(primary_metric, primary_metric)}</div>",
+    f"<div class='section-header'>Top countries by {METRIC_LABELS.get(primary_metric, primary_metric)}</div>",
     unsafe_allow_html=True,
 )
 st.caption("Communication purpose: **Comparing categories** — horizontal bar, colored by primary metric")
@@ -324,6 +383,8 @@ fig_bar = px.bar(
 fig_bar.update_layout(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor=T["plot_bg"],
+    font=dict(color=T["text"]),
+    hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
     margin=dict(l=20, r=20, t=20, b=20),
     height=max(350, top_n * 28),
     coloraxis_colorbar=dict(title=METRIC_LABELS.get(primary_metric, primary_metric)),
@@ -334,7 +395,7 @@ fig_bar.update_yaxes(gridcolor=T["grid"])
 st.plotly_chart(fig_bar, use_container_width=True)
 
 # ── Section 3: Part-to-whole — Donut + Grouped Bar ───────────────────────────
-st.markdown("<div class='section-header'>🍩 Where does energy come from?</div>", unsafe_allow_html=True)
+st.markdown("<div class='section-header'>Where does energy come from?</div>", unsafe_allow_html=True)
 st.caption("Communication purpose: **Part-to-whole** — donut chart + grouped bar")
 
 col_donut, col_gbar = st.columns([1, 2])
@@ -355,6 +416,8 @@ with col_donut:
     fig_donut.update_traces(textposition="inside", textinfo="percent+label")
     fig_donut.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=T["text"]),
+        hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
         margin=dict(l=10, r=10, t=60, b=20),
         height=ENERGY_HEIGHT,
         showlegend=True,
@@ -389,6 +452,8 @@ with col_gbar:
     fig_gbar.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor=T["plot_bg"],
+        font=dict(color=T["text"]),
+        hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
         margin=dict(l=10, r=10, t=60, b=60),
         height=ENERGY_HEIGHT,
         showlegend=False,
@@ -399,7 +464,7 @@ with col_gbar:
     st.plotly_chart(fig_gbar, use_container_width=True)
 
 # ── Section 4: Connections — Scatter Plot ────────────────────────────────────
-st.markdown("<div class='section-header'>🔵 Relationships & connections</div>", unsafe_allow_html=True)
+st.markdown("<div class='section-header'>Relationships & connections</div>", unsafe_allow_html=True)
 st.caption(
     f"Communication purpose: **Plotting connections & relationships** — bubble chart with trendline · "
     f"Y: **{METRIC_LABELS.get(primary_metric, primary_metric)}**"
@@ -443,6 +508,8 @@ if not scatter_data.empty:
     fig_scatter.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor=T["plot_bg"],
+        font=dict(color=T["text"]),
+        hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
         margin=dict(l=20, r=20, t=20, b=20),
         height=450,
         coloraxis_colorbar=dict(title=METRIC_LABELS.get(_scatter_color, _scatter_color)),
@@ -454,7 +521,7 @@ else:
     st.info("Not enough data to render scatter plot for current selection.")
 
 # ── Section 5: Geo-spatial — Choropleth ──────────────────────────────────────
-st.markdown("<div class='section-header'>🗺️ Global map of climate indicators</div>", unsafe_allow_html=True)
+st.markdown("<div class='section-header'>Global map of climate indicators</div>", unsafe_allow_html=True)
 st.caption(
     f"Communication purpose: **Mapping geo-spatial data** — choropleth · "
     f"metric: **{METRIC_LABELS.get(primary_metric, primary_metric)}**"
@@ -476,6 +543,8 @@ fig_choro = px.choropleth(
 )
 fig_choro.update_layout(
     paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(color=T["text"]),
+    hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
     geo=dict(
         bgcolor=T["geo_bg"],
         lakecolor=T["geo_bg"],
@@ -485,13 +554,13 @@ fig_choro.update_layout(
         coastlinecolor=T["geo_coast"],
     ),
     margin=dict(l=0, r=0, t=10, b=0),
-    height=440,
+    height=540,
     coloraxis_colorbar=dict(title=METRIC_LABELS.get(primary_metric, primary_metric)),
 )
 st.plotly_chart(fig_choro, use_container_width=True)
 
 # ── Section 6: Correlation Heatmap ───────────────────────────────────────────
-st.markdown("<div class='section-header'>🔥 Correlation Heatmap</div>", unsafe_allow_html=True)
+st.markdown("<div class='section-header'>Correlation Heatmap</div>", unsafe_allow_html=True)
 st.caption("Pearson correlations across all continuous indicators — spot hidden relationships")
 
 _col_short = dict(zip(CONTINUOUS_COLS, ["Temp", "CO2", "Sea Lvl", "Rainfall", "Population", "Renewables", "Ext. Weather", "Forest"]))
@@ -516,6 +585,8 @@ if len(corr_data) >= 3:
     fig_heat.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor=T["plot_bg"],
+        font=dict(color=T["text"]),
+        hoverlabel=dict(bgcolor=T["hoverlabel_bg"], font_color=T["hoverlabel_font"], bordercolor=T["hoverlabel_border"]),
         margin=dict(l=20, r=20, t=20, b=20),
         height=460,
         coloraxis_colorbar=dict(title="r"),
@@ -526,9 +597,12 @@ else:
     st.info("Not enough data to compute correlations for current selection.")
 
 # ── Footer ────────────────────────────────────────────────────────────────────
-# st.markdown("---")
-# st.markdown(
-#     f"<small style='color:{T[\"subtext\"]}'>Dashboard built with Streamlit · Plotly · Pandas &nbsp;|&nbsp; "
-#     f"Data: Global Climate Change Indicators 2000–2024 · 1,000 rows across multiple countries</small>",
-#     unsafe_allow_html=True,
-# )
+st.markdown("---")
+_footer_subtext = T["subtext"]
+_footer_accent = T["section_accent"]
+st.markdown(
+    f"<small style='color:{_footer_subtext}'>Built with Streamlit · Plotly · Pandas &nbsp;|&nbsp; "
+    f"Dataset: <a href='https://www.kaggle.com/datasets/adilshamim8/temperature' "
+    f"target='_blank' style='color:{_footer_accent};'>Global Climate Change Indicators 2000–2024</a> on Kaggle</small>",
+    unsafe_allow_html=True,
+)
